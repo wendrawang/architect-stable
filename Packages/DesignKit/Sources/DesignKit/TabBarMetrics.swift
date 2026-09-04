@@ -1,4 +1,4 @@
-import UIKit
+import CoreGraphics
 
 /// Sizes for the tab bar and its raised centre control.
 ///
