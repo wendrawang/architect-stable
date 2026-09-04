@@ -11,12 +11,12 @@ public enum AvailabilityShim {
     ///
     /// `prefersGrabberVisible` and `prefersScrollingExpandsWhenScrolledToEdge` are
     /// house defaults, applied here so no call site can forget them.
-    // swiftlint:disable:next todo
-    // TODO(iOS16): custom-height detents land here as `.custom(resolver:)` once the
-    // deployment target moves past iOS 15. Do not add a `.custom` case before then.
     public static func applySheetPresentation(to controller: UIViewController, isMediumDetent: Bool) {
         controller.modalPresentationStyle = .pageSheet
         guard let sheet = controller.sheetPresentationController else { return }
+        // swiftlint:disable:next todo
+        // TODO(iOS16): custom-height detents land here as `.custom(resolver:)` once the
+        // deployment target moves past iOS 15. Do not add a `.custom` case before then.
         sheet.detents = isMediumDetent ? [.medium()] : [.large()]
         sheet.prefersGrabberVisible = true
         sheet.prefersScrollingExpandsWhenScrolledToEdge = false
