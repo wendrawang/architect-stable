@@ -97,19 +97,21 @@ final class MemoryTests: XCTestCase {
 
         autoreleasepool {
             navigator.present(BetaRoute(value: 1), as: .sheet(.medium), isAnimated: false)
-            XCTAssertTrue(waitUntil { navigationController.presentedViewController != nil },
-                          "The sheet was never presented, so nothing below proves anything")
+            // `presentedViewController` is set before the presentation transition finishes,
+            // and UIKit silently ignores a dismissal issued while that transition is still
+            // in flight. Waiting only for the property to be non-nil is what stalled this
+            // test: the dismissal was dropped and the sheet was never torn down.
+            XCTAssertTrue(waitUntil { isPresentationSettled(on: navigationController) },
+                          "The sheet presentation never settled, so nothing below proves anything")
             XCTAssertNotNil(weakController)
             navigator.dismiss(isAnimated: false)
         }
 
-        // The dismissal has to finish while the presenting controller is still in a window.
-        // Clearing the window first strands the transition: UIKit keeps the presented
-        // controller alive because the dismissal it started can never complete. That is a
-        // property of the test harness, not of the navigator, which stores no reference to
-        // anything it presents.
+        // The dismissal must also complete while the presenting controller is still in a
+        // window, so the window is torn down last. The navigator itself stores no reference
+        // to anything it presents.
         XCTAssertTrue(waitUntil { navigationController.presentedViewController == nil },
-                      "The dismissal never completed")
+                      "The dismissal never completed, which is a stalled transition, not a leak")
         XCTAssertTrue(waitUntil { weakController == nil },
                       "The dismissed sheet was still alive after 2s. That is a retain cycle.")
         XCTAssertTrue(waitUntil { weakViewModel == nil },
@@ -205,6 +207,12 @@ final class MemoryTests: XCTestCase {
     ///
     /// Returns the moment it holds, so a healthy test costs milliseconds and only a genuine
     /// failure pays the full timeout.
+    /// True once a modal is on screen and its presentation transition has finished.
+    private func isPresentationSettled(on presenter: UIViewController) -> Bool {
+        guard let presented = presenter.presentedViewController else { return false }
+        return !presented.isBeingPresented && presented.transitionCoordinator == nil
+    }
+
     private func waitUntil(timeout: TimeInterval = 2, isSatisfied: () -> Bool) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {

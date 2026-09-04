@@ -40,20 +40,32 @@ Results so far, on the branch that introduced these packages:
 | `xcodebuild test` — RouterKit, iPhone 15 simulator | 26 tests, 24 passed |
 | `swiftlint analyze --strict` | not reached yet; the job stops at the first failing gate |
 
-The one failing test is `MemoryTests.test_presentedSheetDeallocatesAfterDismiss`. The first
-fix — waiting on deallocation with a deadline instead of a fixed 50 ms sleep — did not help,
-and that result was informative: the suite went from 0.4 s to 8.6 s, so the waits ran to
-their full timeout and the controller genuinely was not being released. The cause is the
-order of teardown in the test, which cleared `window.rootViewController` in the same
-run-loop turn as the dismissal. A dismissal cannot complete once its presenting controller
-has been pulled out of a window, so UIKit kept the presented controller alive. The test now
-waits for `presentedViewController` to return to `nil` before touching the window, and
-asserts that separately, so a stalled dismissal reports itself as a stalled dismissal rather
-than as a leak.
+The one failing test is `MemoryTests.test_presentedSheetDeallocatesAfterDismiss`, and each
+round of it has been diagnostic rather than guesswork:
 
-The navigator itself stores no reference to anything it presents — `present` and `dismiss`
-touch neither `routeStack` nor any stored property — and the sibling pop test, which
-exercises the same `HostingScreen` and view model, passes on the first run-loop turn.
+1. It asserted deallocation 50 ms after dismissal. Replacing the sleep with a deadline did
+   not help — and the suite went from 0.4 s to 8.6 s, so the waits ran to their full timeout
+   and the controller genuinely was not released. Slow teardown was the wrong diagnosis.
+2. Tearing the window down before the dismissal completed was the next candidate. Moving the
+   teardown after, and asserting `presentedViewController == nil` as its own step, produced
+   three timeouts instead of two — which located the fault precisely: the presentation
+   succeeded and the **dismissal** was the step that never completed.
+3. `presentedViewController` is set before the presentation transition finishes, and UIKit
+   silently drops a dismissal issued while that transition is in flight. The test now waits
+   for the presentation to settle (`isBeingPresented == false`, no transition coordinator)
+   before dismissing.
+
+Each failure was made to name a different cause, so the timeout count alone distinguishes
+"never presented" from "dismissal stalled" from "retain cycle". The navigator stores no
+reference to anything it presents — `present` and `dismiss` touch neither `routeStack` nor
+any stored property — and the sibling pop test, exercising the same `HostingScreen` and view
+model, passes on the first run-loop turn.
+
+Worth recording for the production code: `StackNavigator` guards `push` against an in-flight
+transition but does **not** guard `present`. UIKit dropping a dismissal issued mid-transition
+is the same defect class the push guard exists for. It is left alone here because the brief
+specifies only the push guard and no evidence yet shows it biting a real flow, but it is the
+first thing to look at if a modal ever fails to dismiss.
 
 Note what did **not** fail: the whole tree compiled on the first attempt that reached the
 compiler. `@objc dynamic required init?(coder:)` inside a generic `UIHostingController`
