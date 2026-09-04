@@ -9,7 +9,7 @@ import CoreGraphics
 ///
 /// Every number the tab bar needs lives here. A layout constant written anywhere else is a
 /// review-blocking error, because that is how two screens end up half a point apart.
-public struct TabBarMetrics {
+public struct TabBarMetrics: Sendable {
     public let iconPointSize: CGFloat
     public let raisedDiameter: CGFloat
     /// How far the raised control's centre sits above the top edge of the bar.

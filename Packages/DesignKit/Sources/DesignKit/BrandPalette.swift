@@ -5,7 +5,10 @@ import UIKit
 /// Nothing downstream may invent a colour. Note how few literals there are: the tab bar
 /// takes its background and its unselected tint from system colours, so dark mode works
 /// without a second palette, and the brand red is the only value written by hand.
-public struct BrandPalette {
+/// `@unchecked` rather than plain `Sendable` because it stores `UIColor`, whose conformance
+/// depends on the SDK version. The promise is sound: these instances are created once, never
+/// mutated, and `UIColor` is documented as safe to read from any thread.
+public struct BrandPalette: @unchecked Sendable {
     public let accent: UIColor
     public let onAccent: UIColor
     public let tabSelected: UIColor
