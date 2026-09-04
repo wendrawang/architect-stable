@@ -1,3 +1,10 @@
+// SwiftLint's analyzer reports this import as unused. The compiler disagrees: removing it
+// fails module emission for DesignKit, because CGFloat is declared in CoreGraphics and the
+// analyzer's index does not attribute it to the module that owns it. Established by CI, not
+// assumed — the import was removed, the build broke, and it was put back.
+// swiftlint:disable:next unused_import
+import CoreGraphics
+
 /// Sizes for the tab bar and its raised centre control.
 ///
 /// Every number the tab bar needs lives here. A layout constant written anywhere else is a

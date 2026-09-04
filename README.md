@@ -370,6 +370,11 @@ Reported, not worked around:
 - `bool_param_is_prefix` only inspects the first parameter after `(`. A `Bool` in any later
   position is invisible to it, which is why the `isAnimated` rename was a convention
   decision rather than a linter-forced one.
+- `unused_import` is not always right. It reports `import CoreGraphics` in
+  `DesignKit/TabBarMetrics.swift` as unused, but removing it fails module emission: `CGFloat`
+  is declared in CoreGraphics and the analyzer's index does not attribute it there. That file
+  carries the only `disable:next` of its kind, with the evidence in the comment. When the
+  analyzer and the compiler disagree, the compiler wins.
 - `no_availability_outside_shim` has no path exclusion, so it would fire inside
   `AvailabilityShim.swift` itself. Not an issue today — the shim needs no branch — but the
   first branch added there will need a `disable:next`, or the rule needs an `excluded` key.
