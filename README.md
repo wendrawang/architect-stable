@@ -13,6 +13,40 @@ Packages/
   AppCore/        composition root                              everything above
 ```
 
+## Run it
+
+```bash
+open HostApp/HostApp.xcodeproj     # pick an iOS 15+ simulator, press Run
+```
+
+Or headless, which is what CI does:
+
+```bash
+bash Tools/smoke-hostapp.sh        # builds, installs, launches, screenshots, asserts it stays up
+```
+
+`HostApp/` is a development harness: one Swift file and a project file, depending on
+`AppCore` and `RouterKit` as local packages. **No package depends on it**, and deleting the
+folder changes nothing about the architecture. It exists because a build passing only says
+the code compiles; a launch says the composition root really did wire a registry, an overlay
+window and a tab host, and that the sample route resolved into a screen.
+
+CI builds it, launches it on a simulator, fails if the process is not alive after eight
+seconds, and uploads the launch screenshot as an artifact.
+
+## Adopting this into an existing app
+
+1. Copy `Packages/` into your repository and add `AppCore` (and `RouterKit`, for
+   `SessionSnapshot` and `TabIdentifier`) as local package dependencies of your app target.
+2. Copy the two types in `HostApp/Sources/HostAppDelegate.swift`. They are the entire
+   integration surface: build `AppComposition`, take `rootViewController()`, hand it URLs.
+3. Replace `AppCore/AppTabs.swift` with your real tabs, and `AppDeepLinks.swift` with your
+   real URL grammar. Both are the composition root's business, not RouterKit's.
+4. Delete `FeatureSample` and add your own feature packages in the shape described in
+   `Packages/RouterKit/README.md`.
+5. Copy `.swiftlint.yml` and the `Tools/` scripts. `Tools/verify.sh` runs without a Swift
+   toolchain; `Tools/gates-macos.sh` runs the full gate set.
+
 `Packages/RouterKit/README.md` is the working document: how to add a screen, add a route,
 register a feature, the ownership contract, and what is forbidden.
 
@@ -123,6 +157,11 @@ bash Tools/verify.sh
   so `line_length`, `file_length`, `identifier_name`, `modifier_order` and the rest are
   unchecked by machine here — only by hand.
 - `Tools/budgets.py` reports the Part 8 budgets and the Part 9.4 early-warning counts.
+- `Tools/validate_pbxproj.py` parses `HostApp.xcodeproj` and checks every object reference
+  resolves.
+- `.swiftlint.yml` sets `included: Packages`, so `HostApp/` is outside the linter's scope.
+  Its one source file was checked against the custom rules by hand and passes; the config was
+  left as the brief specifies rather than widened.
 - `Tools/verify.sh` also checks the Part 5 structural confirmations and the dependency
   edges between packages.
 
@@ -173,11 +212,12 @@ Files over 200 non-comment lines: **0**. Methods over 40 lines: **0**. Identifie
   written, not by effort. If the transition metric matters — and it is the only thing that
   measures real smoothness — the "local SPM packages only" rule needs one exception: a thin
   host app target in a project file that contains nothing but the app delegate.
-- **A runnable app.** `AppCore.AppComposition` is a complete composition root, but without
-  an app target there is nothing to launch. Hosting it is three lines in a scene delegate:
-  build `AppComposition(windowScene:logger:analytics:)`, set
-  `window.rootViewController = composition.rootViewController()`, call
-  `makeKeyAndVisible()`.
+- **~~A runnable app.~~ Delivered, on request.** Part 1 forbids creating an `.xcodeproj`,
+  and the repository owner asked for a host app anyway so the infrastructure could be seen
+  running. `HostApp/` is that app. The project file is hand-written — XcodeGen and Tuist are
+  also forbidden — and `Tools/validate_pbxproj.py` parses and reference-checks it on every
+  run of `Tools/verify.sh`, because a broken project file reports itself only as "cannot be
+  opened", with no line number. The packages are untouched by it and nothing depends on it.
 
 ## Performance: what this task did and did not earn
 

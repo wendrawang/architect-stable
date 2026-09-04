@@ -63,3 +63,15 @@ jobs:
 
       - name: swiftlint analyze --strict
         run: swiftlint analyze --strict --config .swiftlint.yml --compiler-log-path build.log
+
+      # Proof that the infrastructure comes up on screen, not just that it compiles.
+      - name: Build and launch the host app
+        run: bash Tools/smoke-hostapp.sh
+
+      - name: Upload the launch screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hostapp-launch-screenshot
+          path: hostapp-launch.png
+          if-no-files-found: warn

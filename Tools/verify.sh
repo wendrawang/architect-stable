@@ -113,6 +113,8 @@ echo
 python3 Tools/lint_custom_rules.py || FAILURES=$((FAILURES + 1))
 echo
 python3 Tools/budgets.py || FAILURES=$((FAILURES + 1))
+echo
+python3 Tools/validate_pbxproj.py || FAILURES=$((FAILURES + 1))
 
 echo
 echo "structural failures: $FAILURES"
