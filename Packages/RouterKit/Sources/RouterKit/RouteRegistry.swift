@@ -1,5 +1,4 @@
 import UIKit
-import CoreKit
 
 /// Type-safe at registration, erased at resolution.
 ///

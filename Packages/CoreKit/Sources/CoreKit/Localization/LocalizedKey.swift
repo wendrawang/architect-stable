@@ -1,4 +1,3 @@
-import Foundation
 
 /// A localisation key, not a localised string.
 ///

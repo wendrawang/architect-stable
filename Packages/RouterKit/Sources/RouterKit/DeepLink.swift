@@ -1,4 +1,3 @@
-import Foundation
 
 /// A parsed deep link: the destination stack it asks for, plus its auth requirement.
 ///

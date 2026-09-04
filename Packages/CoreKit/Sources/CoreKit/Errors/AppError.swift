@@ -1,4 +1,3 @@
-import Foundation
 
 /// The single error type crossing layer boundaries.
 ///

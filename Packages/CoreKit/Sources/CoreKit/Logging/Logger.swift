@@ -1,4 +1,3 @@
-import Foundation
 
 /// Three methods. No levels enum, no sinks, no formatters.
 ///

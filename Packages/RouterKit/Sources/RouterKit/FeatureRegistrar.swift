@@ -1,4 +1,3 @@
-import Foundation
 import CoreKit
 
 /// The cross-cutting services every feature may assume exist.

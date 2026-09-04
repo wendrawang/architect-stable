@@ -1,4 +1,3 @@
-import Foundation
 
 /// How a destination appears. Push is not here — push is `Navigator.push`.
 public enum PresentationStyle: Equatable, Sendable {

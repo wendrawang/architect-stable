@@ -1,4 +1,3 @@
-import Foundation
 
 /// Where an error is shown to the customer.
 public enum ErrorSurface: String, Equatable, Hashable, Sendable, CaseIterable {

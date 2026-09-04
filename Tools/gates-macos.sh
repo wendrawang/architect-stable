@@ -24,7 +24,7 @@ popd >/dev/null
 echo
 echo "== xcodebuild build: AppCore (pulls every package) =="
 pushd Packages/AppCore >/dev/null
-xcodebuild -scheme AppCore -destination 'generic/platform=iOS' build
+xcodebuild -scheme AppCore -destination 'generic/platform=iOS' build | tee -a ../../build.log
 popd >/dev/null
 
 echo

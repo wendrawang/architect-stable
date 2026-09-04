@@ -1,4 +1,3 @@
-import Foundation
 
 /// Domain model. No transport concern reaches this type.
 struct PinVerification: Equatable {

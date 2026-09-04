@@ -1,4 +1,3 @@
-import Foundation
 
 /// Placeholder. Transport is out of scope for this task.
 ///

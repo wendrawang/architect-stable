@@ -1,4 +1,3 @@
-import Foundation
 
 /// Placeholder. Design tokens and components are out of scope for this task.
 ///

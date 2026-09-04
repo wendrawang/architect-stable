@@ -1,4 +1,3 @@
-import Foundation
 
 /// A tab, named by the composition root.
 ///

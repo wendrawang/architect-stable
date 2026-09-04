@@ -1,4 +1,3 @@
-import Foundation
 import CoreKit
 
 /// The result the screen shows on success. A domain value, already formatted.

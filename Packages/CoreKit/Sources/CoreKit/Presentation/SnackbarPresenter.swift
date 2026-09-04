@@ -1,4 +1,3 @@
-import Foundation
 
 /// Transient, non-blocking message surface.
 ///

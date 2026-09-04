@@ -1,4 +1,3 @@
-import Foundation
 
 /// Wire shape. This type must never appear outside `Data/`.
 struct PinVerificationDTO: Decodable {

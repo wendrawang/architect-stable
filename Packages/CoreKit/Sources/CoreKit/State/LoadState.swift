@@ -1,4 +1,3 @@
-import Foundation
 
 /// The only sanctioned way to model "a value that may not be here yet".
 ///

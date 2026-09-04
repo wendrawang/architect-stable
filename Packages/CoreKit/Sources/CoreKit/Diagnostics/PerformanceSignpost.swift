@@ -1,4 +1,3 @@
-import Foundation
 import os
 
 /// Interval instrumentation for the navigation path.

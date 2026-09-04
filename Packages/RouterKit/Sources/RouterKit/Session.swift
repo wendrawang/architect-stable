@@ -1,4 +1,3 @@
-import Foundation
 
 /// What deep-link resolution needs to know about the session, and nothing more.
 ///

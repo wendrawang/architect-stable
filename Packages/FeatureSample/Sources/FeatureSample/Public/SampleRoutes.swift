@@ -1,4 +1,3 @@
-import Foundation
 import RouterKit
 
 /// The sample tab's root. Carries no data.

@@ -47,9 +47,11 @@ jobs:
         working-directory: Packages/RouterKit
         run: xcodebuild -scheme RouterKit -destination "platform=iOS Simulator,name=${SIMULATOR}" test
 
+      # Appended to the same log so `swiftlint analyze` covers every package, not just
+      # RouterKit and CoreKit. Building AppCore compiles all six.
       - name: Build AppCore for iOS
         working-directory: Packages/AppCore
-        run: xcodebuild -scheme AppCore -destination 'generic/platform=iOS' build
+        run: xcodebuild -scheme AppCore -destination 'generic/platform=iOS' build | tee -a "${GITHUB_WORKSPACE}/build.log"
 
       - name: Test FeatureSample
         working-directory: Packages/FeatureSample

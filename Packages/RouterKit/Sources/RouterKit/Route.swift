@@ -1,4 +1,3 @@
-import Foundation
 
 /// A navigable destination, expressed as data.
 ///

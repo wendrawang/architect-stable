@@ -39,12 +39,19 @@ Results so far, on the branch that introduced these packages:
 | `xcodebuild build` — RouterKit, iOS device slice | passes |
 | `xcodebuild test` — RouterKit, iPhone 15 simulator | passes, 27 tests |
 | `xcodebuild build` — AppCore, iOS device slice | one error found and fixed: `Logger` ambiguous between `os.Logger` and `CoreKit.Logger` |
-| `xcodebuild test` — FeatureSample, AppCore | not reached yet |
-| `swiftlint analyze --strict` | not reached yet; the job stops at the first failing gate |
+| `xcodebuild test` — FeatureSample, AppCore | passes |
+| `swiftlint analyze --strict` | 30 unused imports found and removed; **`unused_declaration` found none** |
 
 Building AppCore compiles every other package first, so CoreKit, RouterKit, DesignKit,
-NetworkKit and FeatureSample are all confirmed to compile — the failure was in AppCore's own
-sources.
+NetworkKit and FeatureSample all compile.
+
+`unused_declaration` reporting zero is the result worth reading here: it is the mechanical
+version of the Part 8 deletion test, and it says every type, function and property in these
+packages is actually referenced. Nothing was created "because it seemed natural".
+
+The analyzer originally saw only 24 of 55 files, because the compiler log came from the
+RouterKit build alone. The AppCore build is now appended to the same log, so the gate covers
+every package — a gate that inspects half the code is not the gate Part 9.4 asks for.
 
 **Naming trade-off worth a decision.** Part 8.3 asks for one `Logger` protocol, and that name
 collides with Apple's `os.Logger`: any file importing both `os` and `CoreKit` has to write
