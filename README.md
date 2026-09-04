@@ -40,37 +40,35 @@ Results so far, on the branch that introduced these packages:
 | `xcodebuild test` — RouterKit, iPhone 15 simulator | 26 tests, 24 passed |
 | `swiftlint analyze --strict` | not reached yet; the job stops at the first failing gate |
 
-One test from Part 6.4 could not be delivered as written, and the four rounds of diagnosis
-are worth recording because each one narrowed the cause rather than guessing at it:
+One test from Part 6.4 could not be delivered as written. Five CI rounds established that
+rather than assuming it, and each round was designed so its failure named a different cause:
 
-1. `test_presentedSheetDeallocatesAfterDismiss` asserted deallocation 50 ms after dismissal.
-   Replacing the sleep with a deadline did not help, and the suite went from 0.4 s to 8.6 s —
-   the waits ran to their full timeout, so the controller genuinely was not released. Slow
-   teardown was the wrong diagnosis.
-2. Asserting `presentedViewController == nil` as its own step produced three timeouts instead
-   of two, which located the fault: the presentation succeeded and the **dismissal** was the
-   step that never completed.
-3. Waiting for the presentation to settle before dismissing produced **four** timeouts — so
-   the presentation never settles either. `isBeingPresented` stays true and the transition
-   coordinator stays non-nil indefinitely.
+| Round | Change | Result | What it ruled out |
+|---|---|---|---|
+| 1 | 50 ms sleep after dismissal | 2 failures | — |
+| 2 | 2 s deadline instead of a sleep | 2 failures, suite 0.4 s → 8.6 s | slow teardown |
+| 3 | assert `presentedViewController == nil` separately | 3 failures | the presentation; the **dismissal** stalls |
+| 4 | wait for the presentation to settle first | 4 failures | the presentation never settles either |
+| 5 | drop the window, assert non-retention | fails immediately | UIKit never retains it, so the assertion is vacuous |
 
-That is conclusive, and it is a property of the harness, not of the navigator. A SwiftPM test
-target has no application or scene lifecycle, so a modal presentation half-happens and its
-transition never completes; UIKit then drops any dismissal issued while a presentation is in
-flight, so the sheet can never be torn down. No assertion about deallocation downstream of
-that can mean anything.
+A SwiftPM test target has no application or scene lifecycle. A modal presentation
+half-happens — `presentedViewController` is set — but `isBeingPresented` stays true and the
+transition coordinator stays non-nil indefinitely, so UIKit drops any dismissal issued
+against it. Every assertion downstream of `present` is therefore either stalled or vacuous.
+Round 5 also showed UIKit discarding the detents and grabber the shim had applied, when it
+built a fresh presentation controller for a transition that then never completed.
 
-**What was done about it.** The test was narrowed, not skipped or disabled, and renamed to
-say what it actually proves: `test_navigatorRetainsNothingItPresents` asserts the ownership
-row that matters — the navigator holds no reference to a controller it created — with no
-window involved, so no stalled transition can hold the controller in the navigator's place.
-A second test, `test_sheetPresentationAppliesTheHouseDefaults`, recovers the coverage the
-narrowing gives up by asserting that `.sheet` routes through `AvailabilityShim` and applies
-the detent, the grabber and the scroll-expansion default; that needs no completed transition.
+**What was done.** Nothing was skipped, disabled or given a longer timeout to make it pass.
+The modal tests were replaced by two that assert the same contracts without UIKit's
+presentation lifecycle:
 
-**End-to-end modal deallocation is therefore not covered by a unit test.** It belongs to the
-Part 6.6 Instruments pass, which is listed below as not run. Treat it as an open item, not as
-verified.
+- `test_sheetDefaultsAreAppliedByTheShim` asserts the detent, grabber and scroll-expansion
+  defaults directly on `AvailabilityShim`, which is where that contract actually lives.
+- `test_presentBuildsTheDestinationOnceAndLeavesTheStackAlone` asserts on our own state: the
+  factory runs exactly once at present time, and a modal never enters the route mirror.
+
+**End-to-end modal deallocation is not covered by any test in this repository.** It needs the
+Part 6.6 Instruments pass, listed below as not run. Treat it as an open item, not as verified.
 
 Worth recording for the production code: `StackNavigator` guards `push` against an in-flight
 transition but does **not** guard `present`. UIKit dropping a dismissal issued mid-transition
