@@ -43,8 +43,19 @@ def disabled_lines(text):
 # A few built-in SwiftLint rules are pure text checks, so they can run here too. They are
 # included because removing an import once left files starting with a blank line and only CI
 # caught it: a whitespace regression should not cost a six minute macOS round trip.
+OBSERVABLE = re.compile(r"@Published\b|:\s*ObservableObject\b|@ObservedObject\b|@StateObject\b")
+OBSERVABLE_SOURCES = ("import Combine", "import SwiftUI", "import Foundation")
+
+
 def builtin_text_rules(path, text):
     found = []
+    # ObservableObject and @Published come from Combine. They also reach a file through
+    # Foundation's and SwiftUI's re-exports, so removing an apparently unused Foundation
+    # import can break a view model with no other change. That happened once; this is the
+    # check that would have caught it before CI did.
+    if OBSERVABLE.search(text) and not any(source in text for source in OBSERVABLE_SOURCES):
+        found.append((1, "observable_needs_combine",
+                      "uses ObservableObject or @Published without importing Combine"))
     if text.startswith((" ", "\t", "\n")):
         found.append((1, "leading_whitespace", "file starts with whitespace"))
     if not text.endswith("\n"):

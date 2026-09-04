@@ -74,7 +74,18 @@ Results so far, on the branch that introduced these packages:
 | `xcodebuild test` — RouterKit, iPhone 15 simulator | passes, 27 tests |
 | `xcodebuild build` — AppCore, iOS device slice | one error found and fixed: `Logger` ambiguous between `os.Logger` and `CoreKit.Logger` |
 | `xcodebuild test` — FeatureSample, AppCore | passes |
-| `swiftlint analyze --strict` | 30 unused imports found and removed; **`unused_declaration` found none** |
+| `swiftlint analyze --strict` | 17 unused imports found; **`unused_declaration` found none** |
+
+One of those rounds is worth recording as a mistake rather than a milestone. The analyzer
+named 17 unused imports, all in RouterKit and CoreKit. Rather than stop there, 13 more were
+removed across FeatureSample, DesignKit and NetworkKit on the theory that the analyzer simply
+had not seen those files. Two of them broke the build: `ObservableObject` and `@Published`
+come from Combine and were reaching the view models through Foundation's re-export, which a
+guard that only looked for Foundation *type* names could not see. The view models now
+`import Combine`, which names the real source and is what the brief's "no Combine except
+`ObservableObject`/`@Published`" actually sanctions. The lesson is not that the extra removals
+were wrong — the analyzer now covers those files and will judge them — but that acting beyond
+what a tool reported, on a heuristic, needs the tool pointed at the code first.
 
 Building AppCore compiles every other package first, so CoreKit, RouterKit, DesignKit,
 NetworkKit and FeatureSample all compile.
@@ -159,6 +170,9 @@ bash Tools/verify.sh
 - `Tools/budgets.py` reports the Part 8 budgets and the Part 9.4 early-warning counts.
 - `Tools/validate_pbxproj.py` parses `HostApp.xcodeproj` and checks every object reference
   resolves.
+- The verifier also carries two rules added after CI caught what it had missed:
+  `leading_whitespace` and friends, and `observable_needs_combine`. Both are smoke-tested
+  against a deliberately broken file, so they are known to fire rather than assumed to.
 - `.swiftlint.yml` sets `included: Packages`, so `HostApp/` is outside the linter's scope.
   Its one source file was checked against the custom rules by hand and passes; the config was
   left as the brief specifies rather than widened.
