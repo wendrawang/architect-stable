@@ -1,5 +1,3 @@
-import CoreGraphics
-
 /// Sizes for the tab bar and its raised centre control.
 ///
 /// Every number the tab bar needs lives here. A layout constant written anywhere else is a
