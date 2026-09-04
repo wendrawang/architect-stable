@@ -61,21 +61,27 @@ swiftlint --strict --config .swiftlint.yml
 swiftlint analyze --strict --compiler-log-path build.log
 ```
 
-**They have now run on CI, and this is what they found.** `.github/workflows/ci.yml` runs
+**All of them now pass on CI.** `.github/workflows/ci.yml` runs
 all four on a `macos-14` runner on every pull request, plus a structural job on Linux.
 `Tools/gates-macos.sh` runs the same sequence locally.
 
-Results so far, on the branch that introduced these packages:
+Final state on the branch that introduced these packages — every gate green, including a
+launch of the host app on a simulator:
 
 | Gate | Result |
 |---|---|
-| `swiftlint --strict` (0.65.0, 55 files) | passes. One violation found and fixed: an orphaned doc comment in `AvailabilityShim.swift` |
-| `xcodebuild build` — RouterKit, iOS device slice | passes |
-| `xcodebuild test` — RouterKit, iPhone 15 simulator | passes, 27 tests |
-| `xcodebuild build` — AppCore, iOS device slice | one error found and fixed: `Logger` ambiguous between `os.Logger` and `CoreKit.Logger` |
-| `xcodebuild test` — FeatureSample, AppCore | passes |
-| `swiftlint analyze --strict` | 18 unused imports found across 48 files; **`unused_declaration` found none** |
-| `Tools/smoke-hostapp.sh` — build, launch, screenshot | not reached yet |
+| `swiftlint --strict` (0.65.0, 55 files) | **passes.** Found and fixed: an orphaned doc comment in `AvailabilityShim.swift` |
+| `xcodebuild build` — RouterKit, iOS device slice | **passes** |
+| `xcodebuild test` — RouterKit, iPhone 15 simulator | **passes**, 27 tests |
+| `xcodebuild build` — AppCore, iOS device slice | **passes.** Found and fixed: `Logger` ambiguous between `os.Logger` and `CoreKit.Logger` |
+| `xcodebuild test` — FeatureSample, AppCore | **passes** |
+| `swiftlint analyze --strict` | **passes** over 48 files. Found and fixed 18 unused imports; **`unused_declaration` found none** |
+| `Tools/smoke-hostapp.sh` — build, launch, screenshot | **passes.** The app launches on a simulator and is still running eight seconds later |
+
+The last row is the one that matters most: a hand-written `.xcodeproj`, never opened in Xcode
+before CI opened it, builds and runs. The composition root really does wire a registry, an
+overlay window and a tab host, and the sample route really does resolve into a screen. The
+screenshot is uploaded as a CI artifact on every run.
 
 One of those rounds is worth recording as a mistake rather than a milestone. The analyzer
 named 17 unused imports, all in RouterKit and CoreKit. Rather than stop there, 13 more were
@@ -161,8 +167,9 @@ warm iterations, with a 14.5 ms first-iteration outlier. **This is not a perform
 It is measured against two trivial screens and proves only that the instrument works.
 
 This repository was authored in a Linux container with no Swift toolchain, no Xcode and no
-UIKit, and with `download.swift.org` blocked by network policy, so nothing below was
-verified locally. CI is the source of truth for whether it builds.
+UIKit, and with `download.swift.org` blocked by network policy, so nothing here was verified
+locally. CI is the source of truth, and it took eleven rounds to get green. Every failure and
+what it ruled out is recorded below rather than tidied away.
 
 What *was* run in this container, and passes:
 
