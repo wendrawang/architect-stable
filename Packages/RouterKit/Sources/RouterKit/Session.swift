@@ -1,4 +1,3 @@
-
 /// What deep-link resolution needs to know about the session, and nothing more.
 ///
 /// A value, read at the moment of resolution, so `resolveDeepLink` stays pure.

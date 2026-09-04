@@ -1,4 +1,3 @@
-
 /// The outcome of resolving a deep link. Contains no side effect and performs none.
 public enum DeepLinkResolution {
     /// Authenticated and every destination exists. Navigate straight there.

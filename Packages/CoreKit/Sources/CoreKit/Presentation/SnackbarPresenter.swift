@@ -1,4 +1,3 @@
-
 /// Transient, non-blocking message surface.
 ///
 /// Injected into a view model at `init` so the view model can honour an

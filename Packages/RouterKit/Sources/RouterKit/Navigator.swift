@@ -1,4 +1,3 @@
-
 /// A tab, named by the composition root.
 ///
 /// A `String`-backed struct rather than an enum: an enum here would force

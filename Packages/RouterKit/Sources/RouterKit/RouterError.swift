@@ -1,4 +1,3 @@
-
 /// Failures the navigation layer can produce. All of them are recoverable:
 /// nothing in `RouterKit` traps in RELEASE.
 public enum RouterError: Error, Equatable {

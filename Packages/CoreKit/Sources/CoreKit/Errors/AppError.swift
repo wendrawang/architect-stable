@@ -1,4 +1,3 @@
-
 /// The single error type crossing layer boundaries.
 ///
 /// Repositories map transport and decoding failures into `AppError` at the data

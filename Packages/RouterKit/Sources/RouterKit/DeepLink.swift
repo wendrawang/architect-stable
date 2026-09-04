@@ -1,4 +1,3 @@
-
 /// A parsed deep link: the destination stack it asks for, plus its auth requirement.
 ///
 /// Parsing a URL into this is the composition root's job. Keeping the parsed stack in

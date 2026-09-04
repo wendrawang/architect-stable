@@ -1,4 +1,3 @@
-
 /// Placeholder. Design tokens and components are out of scope for this task.
 ///
 /// When this package is filled in, `ScreenChrome` in RouterKit is the only place

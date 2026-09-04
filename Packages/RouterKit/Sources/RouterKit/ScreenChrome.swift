@@ -1,4 +1,3 @@
-
 /// How the back button of the *next* screen is drawn.
 public enum BackButtonStyle: Equatable, Sendable {
     /// System chevron plus the previous screen's title.

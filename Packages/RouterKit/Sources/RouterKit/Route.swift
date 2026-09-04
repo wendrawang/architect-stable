@@ -1,4 +1,3 @@
-
 /// A navigable destination, expressed as data.
 ///
 /// Every route is a `struct` declared in the package that owns the destination and

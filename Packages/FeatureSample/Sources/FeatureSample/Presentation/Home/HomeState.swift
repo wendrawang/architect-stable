@@ -1,4 +1,3 @@
-
 /// A row the view renders verbatim. The title is already formatted; the view never
 /// formats, branches on a business condition, or decides what a tap means.
 struct HomeRow: Equatable, Identifiable {

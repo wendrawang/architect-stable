@@ -1,4 +1,3 @@
-
 /// Three methods. No levels enum, no sinks, no formatters.
 ///
 /// If structured logging is needed later it is a new conformance, not a wider protocol.

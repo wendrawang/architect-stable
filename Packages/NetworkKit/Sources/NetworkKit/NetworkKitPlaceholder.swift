@@ -1,4 +1,3 @@
-
 /// Placeholder. Transport is out of scope for this task.
 ///
 /// When this package is filled in, every operation is `async` and every response is

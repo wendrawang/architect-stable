@@ -1,4 +1,3 @@
-
 /// A localisation key, not a localised string.
 ///
 /// Carrying keys rather than resolved copy keeps configuration values

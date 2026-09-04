@@ -1,4 +1,3 @@
-
 /// The only sanctioned way to model "a value that may not be here yet".
 ///
 /// Sentinel defaults (`""`, a zeroed struct) hide the difference between
