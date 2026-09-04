@@ -17,5 +17,5 @@ enum HomeAction: Equatable {
     case approveTransactionTapped
     case signInTapped
     case lockSessionTapped
-    case paymentsTabTapped
+    case financialTabTapped
 }

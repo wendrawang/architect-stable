@@ -19,7 +19,7 @@ public enum SampleRegistrar: FeatureRegistrar {
         registry.register(SampleHomeRoute.self) { _, navigator in
             let viewModel = HomeViewModel(navigator: navigator,
                                           snackbar: sample.snackbar,
-                                          paymentsTab: sample.paymentsTab)
+                                          financialTab: sample.financialTab)
             return HostingScreen(chrome: ScreenChrome(title: "Sample", isLargeTitleEnabled: true),
                                  rootView: HomeView(viewModel: viewModel))
         }

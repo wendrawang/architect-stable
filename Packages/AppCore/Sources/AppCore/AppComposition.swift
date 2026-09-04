@@ -1,5 +1,6 @@
 import UIKit
 import CoreKit
+import DesignKit
 import RouterKit
 import FeatureSample
 
@@ -27,12 +28,15 @@ public final class AppComposition {
         self.overlay = overlay
         self.dependencies = dependencies
         self.logger = logger
-        self.tabHost = TabHost(tabs: [.dashboard, .payments],
+        let palette = BrandPalette.nyala
+        let tabs = AppTabBar.items(palette: palette, metrics: TabBarMetrics.standard)
+        self.tabHost = TabHost(tabs: tabs,
                                registry: registry,
                                overlay: overlay,
                                logger: logger)
+        AppTabBar.applyAppearance(to: tabHost.tabBarController.tabBar, palette: palette)
         SampleRegistrar.register(into: registry, dependencies: dependencies)
-        setRootRoutes()
+        setRootRoutes(for: tabs)
     }
 
     public func rootViewController() -> UIViewController {
@@ -66,12 +70,15 @@ public final class AppComposition {
     }
 
     private func navigate(to routes: [any Route]) {
-        tabHost.switchTab(.dashboard, isStackReset: false)
-        tabHost.navigator(for: .dashboard)?.setStack(routes, isAnimated: false)
+        tabHost.switchTab(.home, isStackReset: false)
+        tabHost.navigator(for: .home)?.setStack(routes, isAnimated: false)
     }
 
-    private func setRootRoutes() {
-        tabHost.navigator(for: .dashboard)?.setStack([SampleHomeRoute()], isAnimated: false)
-        tabHost.navigator(for: .payments)?.setStack([SampleHomeRoute()], isAnimated: false)
+    /// Every tab starts on the sample screen because the sample is the only feature there is.
+    /// A real app gives each tab its own root route here, and nothing else in this file moves.
+    private func setRootRoutes(for tabs: [TabHost.Item]) {
+        for tab in tabs {
+            tabHost.navigator(for: tab.identifier)?.setStack([SampleHomeRoute()], isAnimated: false)
+        }
     }
 }
