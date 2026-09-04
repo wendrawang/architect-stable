@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  structural:
+    name: Structural checks (no toolchain required)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyyaml
+      - name: Custom lint rules, budgets and dependency edges
+        run: bash Tools/verify.sh
+
+  build-and-test:
+    name: Build, lint and test (Xcode)
+    runs-on: macos-14
+    env:
+      SIMULATOR: iPhone 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: swiftlint --strict
+        run: swiftlint --strict --config .swiftlint.yml
+
+      - name: Build RouterKit for iOS
+        working-directory: Packages/RouterKit
+        run: xcodebuild -scheme RouterKit -destination 'generic/platform=iOS' build | tee "${GITHUB_WORKSPACE}/build.log"
+
+      - name: Test RouterKit
+        working-directory: Packages/RouterKit
+        run: xcodebuild -scheme RouterKit -destination "platform=iOS Simulator,name=${SIMULATOR}" test
+
+      - name: Build AppCore for iOS
+        working-directory: Packages/AppCore
+        run: xcodebuild -scheme AppCore -destination 'generic/platform=iOS' build
+
+      - name: Test FeatureSample
+        working-directory: Packages/FeatureSample
+        run: xcodebuild -scheme FeatureSample -destination "platform=iOS Simulator,name=${SIMULATOR}" test
+
+      - name: Test AppCore
+        working-directory: Packages/AppCore
+        run: xcodebuild -scheme AppCore -destination "platform=iOS Simulator,name=${SIMULATOR}" test
+
+      - name: swiftlint analyze --strict
+        run: swiftlint analyze --strict --config .swiftlint.yml --compiler-log-path build.log

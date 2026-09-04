@@ -27,12 +27,18 @@ swiftlint --strict --config .swiftlint.yml
 swiftlint analyze --strict --compiler-log-path build.log
 ```
 
-**None of these were run.** This work was produced in a Linux container with no Swift
-toolchain, no Xcode and no UIKit, so the code has never been compiled and the tests have
-never executed. Treat every Swift file here as unbuilt until someone runs the four commands
-above on macOS. Nothing below claims otherwise.
+**None of these were run here.** This work was produced in a Linux container with no Swift
+toolchain, no Xcode and no UIKit — and the container's network policy blocks
+`download.swift.org`, so even a parse-only check was unavailable. The code has never been
+compiled and the tests have never executed on this machine. Treat every Swift file as
+unbuilt until the gates go green. Nothing below claims otherwise.
 
-What *was* run, and passes:
+They are now wired to run automatically. `.github/workflows/ci.yml` runs all four on a
+`macos-14` runner on every pull request, plus the structural job on Linux.
+`Tools/gates-macos.sh` runs the same sequence locally. **The first CI run on this branch is
+the real verification of this change** — read it before reading anything else here.
+
+What *was* run in this container, and passes:
 
 ```bash
 bash Tools/verify.sh
@@ -78,8 +84,8 @@ Files over 200 non-comment lines: **0**. Methods over 40 lines: **0**. Identifie
 
 ## What could not be delivered, and why
 
-- **Nothing was compiled, linted with SwiftLint, or tested.** See above. This is the
-  single largest caveat on the whole delivery.
+- **Nothing was compiled, linted with SwiftLint, or tested in this container.** See above.
+  This is the single largest caveat on the whole delivery; CI closes it on the first run.
 - **Part 6.6, the manual memory pass** (Debug Memory Graph, Instruments Leaks +
   Allocations, `MallocStackLogging`) requires Xcode and a device or simulator. Not run,
   and no findings are reported — reporting "no leaks found" from an unrun tool would be a

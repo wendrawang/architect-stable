@@ -28,14 +28,15 @@ public extension Route where Self: Equatable {
     }
 }
 
-extension Array where Element == any Route {
-    func isEquivalent(to other: [any Route]) -> Bool {
-        guard count == other.count else { return false }
-        for (index, route) in enumerated() where !route.isEquivalent(to: other[index]) {
-            return false
-        }
-        return true
+/// Element-wise route equality. A free function rather than a constrained `Array`
+/// extension: a same-type constraint against an existential element is the kind of
+/// construct that is easy to get subtly wrong, and there is exactly one call site.
+func routesAreEquivalent(_ lhs: [any Route], _ rhs: [any Route]) -> Bool {
+    guard lhs.count == rhs.count else { return false }
+    for (index, route) in lhs.enumerated() where !route.isEquivalent(to: rhs[index]) {
+        return false
     }
+    return true
 }
 
 /// Stable key for a route type. Registration and resolution must agree on it.

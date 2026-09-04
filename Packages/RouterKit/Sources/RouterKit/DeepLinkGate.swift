@@ -13,9 +13,9 @@ extension DeepLinkResolution: Equatable {
     public static func == (lhs: DeepLinkResolution, rhs: DeepLinkResolution) -> Bool {
         switch (lhs, rhs) {
         case let (.routes(left), .routes(right)):
-            return left.isEquivalent(to: right)
+            return routesAreEquivalent(left, right)
         case let (.requiresLogin(left), .requiresLogin(right)):
-            return left.isEquivalent(to: right)
+            return routesAreEquivalent(left, right)
         case let (.rejected(left), .rejected(right)):
             return left == right
         default:

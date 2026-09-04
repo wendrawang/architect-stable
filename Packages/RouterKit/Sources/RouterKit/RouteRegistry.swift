@@ -10,7 +10,7 @@ import CoreKit
 /// jank comes from.
 @MainActor
 public final class RouteRegistry {
-    private typealias ErasedFactory = (any Route, any Navigator) throws -> UIViewController
+    private typealias ErasedFactory = @MainActor (any Route, any Navigator) throws -> UIViewController
     private var factories: [String: ErasedFactory] = [:]
     /// Test seam. Duplicate registration traps in DEBUG, which would make the
     /// keeps-the-first-registration contract untestable; a test turns the trap off to
@@ -24,7 +24,7 @@ public final class RouteRegistry {
     /// Registering the same type twice keeps the first registration and traps in DEBUG,
     /// so a duplicate is loud in development and harmless in production.
     public func register<R: Route>(_ type: R.Type,
-                                   factory: @escaping (R, any Navigator) -> UIViewController) {
+                                   factory: @escaping @MainActor (R, any Navigator) -> UIViewController) {
         let key = routeKey(for: type)
         guard factories[key] == nil else {
             if isDuplicateAssertionEnabled {
