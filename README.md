@@ -35,10 +35,23 @@ Results so far, on the branch that introduced these packages:
 
 | Gate | Result |
 |---|---|
-| `swiftlint --strict` (0.65.0, 55 files) | 1 violation, fixed: an orphaned doc comment in `AvailabilityShim.swift` |
-| `xcodebuild build` — RouterKit, iOS device slice | passed |
-| `xcodebuild test` — RouterKit, iPhone 15 simulator | 26 tests, 24 passed |
+| `swiftlint --strict` (0.65.0, 55 files) | passes. One violation found and fixed: an orphaned doc comment in `AvailabilityShim.swift` |
+| `xcodebuild build` — RouterKit, iOS device slice | passes |
+| `xcodebuild test` — RouterKit, iPhone 15 simulator | passes, 27 tests |
+| `xcodebuild build` — AppCore, iOS device slice | one error found and fixed: `Logger` ambiguous between `os.Logger` and `CoreKit.Logger` |
+| `xcodebuild test` — FeatureSample, AppCore | not reached yet |
 | `swiftlint analyze --strict` | not reached yet; the job stops at the first failing gate |
+
+Building AppCore compiles every other package first, so CoreKit, RouterKit, DesignKit,
+NetworkKit and FeatureSample are all confirmed to compile — the failure was in AppCore's own
+sources.
+
+**Naming trade-off worth a decision.** Part 8.3 asks for one `Logger` protocol, and that name
+collides with Apple's `os.Logger`: any file importing both `os` and `CoreKit` has to write
+`CoreKit.Logger`. Only `ConsoleLogger.swift` does today, and it is qualified there. In an app
+that will use OSLog widely this will recur, so renaming `CoreKit.Logger` to something
+collision-free is worth considering. It is left as-is because the brief names it `Logger` and
+renaming touches every package.
 
 One test from Part 6.4 could not be delivered as written. Five CI rounds established that
 rather than assuming it, and each round was designed so its failure named a different cause:

@@ -2,7 +2,11 @@ import os
 import CoreKit
 
 /// The one logger. Three methods, one subsystem, no levels enum and no sinks.
-public final class ConsoleLogger: Logger {
+///
+/// The conformance is qualified because this file imports `os`, which also exports a type
+/// named `Logger`. Any file importing both `os` and `CoreKit` has to disambiguate; this is
+/// the only one that does. See README.md for the naming trade-off.
+public final class ConsoleLogger: CoreKit.Logger {
     private let log: OSLog
 
     public init(subsystem: String, category: String) {
