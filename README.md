@@ -40,12 +40,20 @@ Results so far, on the branch that introduced these packages:
 | `xcodebuild test` — RouterKit, iPhone 15 simulator | 26 tests, 24 passed |
 | `swiftlint analyze --strict` | not reached yet; the job stops at the first failing gate |
 
-The one failing test was `MemoryTests.test_presentedSheetDeallocatesAfterDismiss`, which
-asserted deallocation 50 ms after a modal dismissal. A pop tears down synchronously; a modal
-dismissal is torn down by UIKit's presentation machinery over later run-loop turns, so the
-fixed sleep was the wrong instrument. It now waits on the deallocation itself with a
-deadline. The test still catches what it is for — a retain cycle never clears, however long
-the deadline is — and the sibling pop test that passes on the first turn is unchanged.
+The one failing test is `MemoryTests.test_presentedSheetDeallocatesAfterDismiss`. The first
+fix — waiting on deallocation with a deadline instead of a fixed 50 ms sleep — did not help,
+and that result was informative: the suite went from 0.4 s to 8.6 s, so the waits ran to
+their full timeout and the controller genuinely was not being released. The cause is the
+order of teardown in the test, which cleared `window.rootViewController` in the same
+run-loop turn as the dismissal. A dismissal cannot complete once its presenting controller
+has been pulled out of a window, so UIKit kept the presented controller alive. The test now
+waits for `presentedViewController` to return to `nil` before touching the window, and
+asserts that separately, so a stalled dismissal reports itself as a stalled dismissal rather
+than as a leak.
+
+The navigator itself stores no reference to anything it presents — `present` and `dismiss`
+touch neither `routeStack` nor any stored property — and the sibling pop test, which
+exercises the same `HostingScreen` and view model, passes on the first run-loop turn.
 
 Note what did **not** fail: the whole tree compiled on the first attempt that reached the
 compiler. `@objc dynamic required init?(coder:)` inside a generic `UIHostingController`

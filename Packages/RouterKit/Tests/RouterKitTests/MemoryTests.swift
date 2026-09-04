@@ -97,21 +97,25 @@ final class MemoryTests: XCTestCase {
 
         autoreleasepool {
             navigator.present(BetaRoute(value: 1), as: .sheet(.medium), isAnimated: false)
-            pumpRunLoop()
-            XCTAssertNotNil(weakController, "The sheet was never presented, so nothing is proved")
+            XCTAssertTrue(waitUntil { navigationController.presentedViewController != nil },
+                          "The sheet was never presented, so nothing below proves anything")
+            XCTAssertNotNil(weakController)
             navigator.dismiss(isAnimated: false)
         }
+
+        // The dismissal has to finish while the presenting controller is still in a window.
+        // Clearing the window first strands the transition: UIKit keeps the presented
+        // controller alive because the dismissal it started can never complete. That is a
+        // property of the test harness, not of the navigator, which stores no reference to
+        // anything it presents.
+        XCTAssertTrue(waitUntil { navigationController.presentedViewController == nil },
+                      "The dismissal never completed")
+        XCTAssertTrue(waitUntil { weakController == nil },
+                      "The dismissed sheet was still alive after 2s. That is a retain cycle.")
+        XCTAssertTrue(waitUntil { weakViewModel == nil },
+                      "The sheet's view model was still alive after 2s. That is a retain cycle.")
         window.rootViewController = nil
         window.isHidden = true
-
-        // Unlike a pop, a modal dismissal is torn down by UIKit's presentation machinery
-        // across later run-loop turns, so a fixed sleep is the wrong instrument. Waiting on
-        // the deallocation itself keeps the test's meaning intact: a retain cycle never
-        // clears, no matter how long the deadline is.
-        XCTAssertTrue(waitForDeallocation { weakController == nil },
-                      "The dismissed sheet was still alive after 2s. That is a retain cycle.")
-        XCTAssertTrue(waitForDeallocation { weakViewModel == nil },
-                      "The sheet's view model was still alive after 2s. That is a retain cycle.")
     }
 
     // 6.4.4
@@ -197,25 +201,20 @@ final class MemoryTests: XCTestCase {
                        logger: logger)
     }
 
-    private func pumpRunLoop() {
-        RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-    }
-
     /// Spins the run loop until the predicate holds or the deadline passes.
     ///
-    /// Returns as soon as the object is gone, so a healthy test costs milliseconds and only
-    /// a genuine cycle pays the full timeout.
-    private func waitForDeallocation(timeout: TimeInterval = 2,
-                                     isDeallocated: () -> Bool) -> Bool {
+    /// Returns the moment it holds, so a healthy test costs milliseconds and only a genuine
+    /// failure pays the full timeout.
+    private func waitUntil(timeout: TimeInterval = 2, isSatisfied: () -> Bool) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            if isDeallocated() {
+            if isSatisfied() {
                 return true
             }
             autoreleasepool {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.02))
             }
         }
-        return isDeallocated()
+        return isSatisfied()
     }
 }
