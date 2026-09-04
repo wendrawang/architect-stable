@@ -98,14 +98,20 @@ final class MemoryTests: XCTestCase {
         autoreleasepool {
             navigator.present(BetaRoute(value: 1), as: .sheet(.medium), isAnimated: false)
             pumpRunLoop()
-            XCTAssertNotNil(weakController)
+            XCTAssertNotNil(weakController, "The sheet was never presented, so nothing is proved")
             navigator.dismiss(isAnimated: false)
-            pumpRunLoop()
         }
         window.rootViewController = nil
         window.isHidden = true
-        XCTAssertNil(weakController, "The dismissed sheet is still alive")
-        XCTAssertNil(weakViewModel)
+
+        // Unlike a pop, a modal dismissal is torn down by UIKit's presentation machinery
+        // across later run-loop turns, so a fixed sleep is the wrong instrument. Waiting on
+        // the deallocation itself keeps the test's meaning intact: a retain cycle never
+        // clears, no matter how long the deadline is.
+        XCTAssertTrue(waitForDeallocation { weakController == nil },
+                      "The dismissed sheet was still alive after 2s. That is a retain cycle.")
+        XCTAssertTrue(waitForDeallocation { weakViewModel == nil },
+                      "The sheet's view model was still alive after 2s. That is a retain cycle.")
     }
 
     // 6.4.4
@@ -193,5 +199,23 @@ final class MemoryTests: XCTestCase {
 
     private func pumpRunLoop() {
         RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+    }
+
+    /// Spins the run loop until the predicate holds or the deadline passes.
+    ///
+    /// Returns as soon as the object is gone, so a healthy test costs milliseconds and only
+    /// a genuine cycle pays the full timeout.
+    private func waitForDeallocation(timeout: TimeInterval = 2,
+                                     isDeallocated: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if isDeallocated() {
+                return true
+            }
+            autoreleasepool {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+            }
+        }
+        return isDeallocated()
     }
 }
