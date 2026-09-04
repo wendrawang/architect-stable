@@ -1,1 +1,375 @@
 # architect-stable
+
+Navigation foundation for a greenfield iOS 15 rewrite. Local SPM packages only, no
+`.xcodeproj`, no third-party dependencies.
+
+```
+Packages/
+  CoreKit/        errors, LoadState, ErrorPolicy, Logger, availability shim, diagnostics
+  RouterKit/      navigation infrastructure                     depends on CoreKit
+  DesignKit/      placeholder                                   depends on CoreKit
+  NetworkKit/     placeholder                                   depends on CoreKit
+  FeatureSample/  one throwaway feature, end to end             CoreKit + RouterKit + DesignKit
+  AppCore/        composition root                              everything above
+```
+
+## Run it
+
+```bash
+open HostApp/HostApp.xcodeproj     # pick an iOS 15+ simulator, press Run
+```
+
+Or headless, which is what CI does:
+
+```bash
+bash Tools/smoke-hostapp.sh        # builds, installs, launches, screenshots, asserts it stays up
+```
+
+`HostApp/` is a development harness: one Swift file and a project file, depending on
+`AppCore` and `RouterKit` as local packages. **No package depends on it**, and deleting the
+folder changes nothing about the architecture. It exists because a build passing only says
+the code compiles; a launch says the composition root really did wire a registry, an overlay
+window and a tab host, and that the sample route resolved into a screen.
+
+CI builds it, launches it on a simulator, fails if the process is not alive after eight
+seconds, and uploads the launch screenshot as an artifact.
+
+## Adopting this into an existing app
+
+1. Copy `Packages/` into your repository and add `AppCore` (and `RouterKit`, for
+   `SessionSnapshot` and `TabIdentifier`) as local package dependencies of your app target.
+2. Copy the two types in `HostApp/Sources/HostAppDelegate.swift`. They are the entire
+   integration surface: build `AppComposition`, take `rootViewController()`, hand it URLs.
+3. Replace `AppCore/AppTabs.swift` with your real tabs, and `AppDeepLinks.swift` with your
+   real URL grammar. Both are the composition root's business, not RouterKit's.
+4. Delete `FeatureSample` and add your own feature packages in the shape described in
+   `Packages/RouterKit/README.md`.
+5. Copy `.swiftlint.yml` and the `Tools/` scripts. `Tools/verify.sh` runs without a Swift
+   toolchain; `Tools/gates-macos.sh` runs the full gate set.
+
+`Packages/RouterKit/README.md` is the working document: how to add a screen, add a route,
+register a feature, the ownership contract, and what is forbidden.
+
+## Verification status — read this first
+
+The brief's Part 5 and Part 9.4 gates are:
+
+```bash
+xcodebuild -scheme RouterKit -destination 'generic/platform=iOS' build
+xcodebuild -scheme RouterKit -destination 'platform=iOS Simulator,name=iPhone 15' test
+swiftlint --strict --config .swiftlint.yml
+swiftlint analyze --strict --compiler-log-path build.log
+```
+
+**All of them now pass on CI.** `.github/workflows/ci.yml` runs
+all four on a `macos-14` runner on every pull request, plus a structural job on Linux.
+`Tools/gates-macos.sh` runs the same sequence locally.
+
+Final state on the branch that introduced these packages — every gate green, including a
+launch of the host app on a simulator:
+
+| Gate | Result |
+|---|---|
+| `swiftlint --strict` (0.65.0, 55 files) | **passes.** Found and fixed: an orphaned doc comment in `AvailabilityShim.swift` |
+| `xcodebuild build` — RouterKit, iOS device slice | **passes** |
+| `xcodebuild test` — RouterKit, iPhone 15 simulator | **passes**, 27 tests |
+| `xcodebuild build` — AppCore, iOS device slice | **passes.** Found and fixed: `Logger` ambiguous between `os.Logger` and `CoreKit.Logger` |
+| `xcodebuild test` — FeatureSample, AppCore | **passes** |
+| `swiftlint analyze --strict` | **passes** over 48 files. Found and fixed 18 unused imports; **`unused_declaration` found none** |
+| `Tools/smoke-hostapp.sh` — build, launch, screenshot | **passes.** The app launches on a simulator and is still running eight seconds later |
+
+The last row is the one that matters most: a hand-written `.xcodeproj`, never opened in Xcode
+before CI opened it, builds and runs. The composition root really does wire a registry, an
+overlay window and a tab host, and the sample route really does resolve into a screen. The
+screenshot is uploaded as a CI artifact on every run.
+
+One of those rounds is worth recording as a mistake rather than a milestone. The analyzer
+named 17 unused imports, all in RouterKit and CoreKit. Rather than stop there, 13 more were
+removed across FeatureSample, DesignKit and NetworkKit on the theory that the analyzer simply
+had not seen those files. Two of them broke the build: `ObservableObject` and `@Published`
+come from Combine and were reaching the view models through Foundation's re-export, which a
+guard that only looked for Foundation *type* names could not see. The view models now
+`import Combine`, which names the real source and is what the brief's "no Combine except
+`ObservableObject`/`@Published`" actually sanctions. The lesson is not that the extra removals
+were wrong — the analyzer now covers those files and will judge them — but that acting beyond
+what a tool reported, on a heuristic, needs the tool pointed at the code first.
+
+Widening the compiler log settled it. At full coverage the analyzer read 48 files instead of
+24 and reported exactly one violation: an unused `import UIKit` in `SampleRegistrar.swift`,
+which the narrow gate could never have seen. Eleven of the thirteen speculative removals were
+correct, two were wrong, and the one file left alone out of caution turned out to be a real
+finding. That is the argument for pointing the tool at everything rather than guessing at any
+of it.
+
+Building AppCore compiles every other package first, so CoreKit, RouterKit, DesignKit,
+NetworkKit and FeatureSample all compile.
+
+`unused_declaration` reporting zero is the result worth reading here: it is the mechanical
+version of the Part 8 deletion test, and it says every type, function and property in these
+packages is actually referenced. Nothing was created "because it seemed natural".
+
+The analyzer originally saw only 24 of 55 files, because the compiler log came from the
+RouterKit build alone. The AppCore build is now appended to the same log, so the gate covers
+every package — a gate that inspects half the code is not the gate Part 9.4 asks for.
+
+**Naming trade-off worth a decision.** Part 8.3 asks for one `Logger` protocol, and that name
+collides with Apple's `os.Logger`: any file importing both `os` and `CoreKit` has to write
+`CoreKit.Logger`. Only `ConsoleLogger.swift` does today, and it is qualified there. In an app
+that will use OSLog widely this will recur, so renaming `CoreKit.Logger` to something
+collision-free is worth considering. It is left as-is because the brief names it `Logger` and
+renaming touches every package.
+
+One test from Part 6.4 could not be delivered as written. Five CI rounds established that
+rather than assuming it, and each round was designed so its failure named a different cause:
+
+| Round | Change | Result | What it ruled out |
+|---|---|---|---|
+| 1 | 50 ms sleep after dismissal | 2 failures | — |
+| 2 | 2 s deadline instead of a sleep | 2 failures, suite 0.4 s → 8.6 s | slow teardown |
+| 3 | assert `presentedViewController == nil` separately | 3 failures | the presentation; the **dismissal** stalls |
+| 4 | wait for the presentation to settle first | 4 failures | the presentation never settles either |
+| 5 | drop the window, assert non-retention | fails immediately | UIKit never retains it, so the assertion is vacuous |
+
+A SwiftPM test target has no application or scene lifecycle. A modal presentation
+half-happens — `presentedViewController` is set — but `isBeingPresented` stays true and the
+transition coordinator stays non-nil indefinitely, so UIKit drops any dismissal issued
+against it. Every assertion downstream of `present` is therefore either stalled or vacuous.
+Round 5 also showed UIKit discarding the detents and grabber the shim had applied, when it
+built a fresh presentation controller for a transition that then never completed.
+
+**What was done.** Nothing was skipped, disabled or given a longer timeout to make it pass.
+The modal tests were replaced by two that assert the same contracts without UIKit's
+presentation lifecycle:
+
+- `test_sheetDefaultsAreAppliedByTheShim` asserts the detent, grabber and scroll-expansion
+  defaults directly on `AvailabilityShim`, which is where that contract actually lives.
+- `test_presentBuildsTheDestinationOnceAndLeavesTheStackAlone` asserts on our own state: the
+  factory runs exactly once at present time, and a modal never enters the route mirror.
+
+**End-to-end modal deallocation is not covered by any test in this repository.** It needs the
+Part 6.6 Instruments pass, listed below as not run. Treat it as an open item, not as verified.
+
+Worth recording for the production code: `StackNavigator` guards `push` against an in-flight
+transition but does **not** guard `present`. UIKit dropping a dismissal issued mid-transition
+is the same defect class the push guard exists for. It is left alone here because the brief
+specifies only the push guard and no evidence yet shows it biting a real flow, but it is the
+first thing to look at if a modal ever fails to dismiss.
+
+Note what did **not** fail: the whole tree compiled on the first attempt that reached the
+compiler. `@objc dynamic required init?(coder:)` inside a generic `UIHostingController`
+subclass, the `@MainActor` conformance to `UINavigationControllerDelegate`, `record(deinit:)`
+using a keyword as an argument label, and `@escaping @MainActor` on the registry factory all
+built. Those were the four constructs flagged as most likely to break, and none of them did.
+
+The performance harness emitted real data on its first run, which is the deliverable Part 7
+actually asks for: `XCTOSSignpostMetric` reported `route.resolve` at 0.048–2.4 ms across
+warm iterations, with a 14.5 ms first-iteration outlier. **This is not a performance claim.**
+It is measured against two trivial screens and proves only that the instrument works.
+
+This repository was authored in a Linux container with no Swift toolchain, no Xcode and no
+UIKit, and with `download.swift.org` blocked by network policy, so nothing here was verified
+locally. CI is the source of truth, and it took eleven rounds to get green. Every failure and
+what it ruled out is recorded below rather than tidied away.
+
+What *was* run in this container, and passes:
+
+```bash
+bash Tools/verify.sh
+```
+
+- `Tools/lint_custom_rules.py` evaluates the fifteen `custom_rules` regexes from
+  `.swiftlint.yml` verbatim against `Packages/*/Sources`. It honours
+  `// swiftlint:disable:next`. It does **not** evaluate a single built-in SwiftLint rule,
+  so `line_length`, `file_length`, `identifier_name`, `modifier_order` and the rest are
+  unchecked by machine here — only by hand.
+- `Tools/budgets.py` reports the Part 8 budgets and the Part 9.4 early-warning counts.
+- `Tools/validate_pbxproj.py` parses `HostApp.xcodeproj` and checks every object reference
+  resolves.
+- The verifier also carries two rules added after CI caught what it had missed:
+  `leading_whitespace` and friends, and `observable_needs_combine`. Both are smoke-tested
+  against a deliberately broken file, so they are known to fire rather than assumed to.
+- `.swiftlint.yml` sets `included: Packages`, so `HostApp/` is outside the linter's scope.
+  Its one source file was checked against the custom rules by hand and passes; the config was
+  left as the brief specifies rather than widened.
+- `Tools/verify.sh` also checks the Part 5 structural confirmations and the dependency
+  edges between packages.
+
+Current output: 0 custom-rule violations, 0 budget failures, 0 structural failures.
+
+### Part 5 confirmations
+
+| Confirmation | Result |
+|---|---|
+| No `AnyView` in any file | confirmed, 0 occurrences |
+| No `if #available` outside `AvailabilityShim.swift` | confirmed, 0 occurrences anywhere — the shim needs none today |
+| No banned iOS 16 API present | confirmed, 0 occurrences |
+| No default parameter value on any dependency in any `init` | confirmed |
+| No feature package importing another feature package | confirmed, and unwritable: no feature manifest lists another |
+
+### Part 8 budgets
+
+| Metric | Actual | Limit |
+|---|---|---|
+| `RouterKit` source files (excl. tests) | 15 | 20 |
+| `RouterKit` non-comment lines | 573 | 1,500 |
+| `RouterKit` public symbols | 21 | 25 |
+| `CoreKit` public symbols | 12 | 30 |
+| Parameters in any `init` | 5 | 5 |
+| Nesting depth of generics | 1 | 1 |
+| Protocols with `associatedtype` in any public API | 0 | 0 |
+
+### Part 9.4 early warnings
+
+Files over 200 non-comment lines: **0**. Methods over 40 lines: **0**. Identifiers over
+30 characters: **0**. Nothing is near a ceiling.
+
+## What could not be delivered, and why
+
+- **Nothing could be compiled, linted or tested in the container this was authored in.**
+  CI closes that gap; read the gate table above rather than trusting any local claim.
+- **The 6.4.3 modal leak test**, as discussed above: not unit-testable in a SwiftPM test
+  bundle. Narrowed to the provable contract and deferred to the Instruments pass.
+- **Part 6.6, the manual memory pass** (Debug Memory Graph, Instruments Leaks +
+  Allocations, `MallocStackLogging`) requires Xcode and a device or simulator. Not run,
+  and no findings are reported — reporting "no leaks found" from an unrun tool would be a
+  fabrication. The deterministic leak tests from 6.4 and the 50-cycle test from 6.5 are
+  written and are in `Packages/RouterKit/Tests/RouterKitTests/MemoryTests.swift`.
+- **Part 7.4's UI test target** using `XCTOSSignpostMetric.navigationTransitionMetric`
+  needs a host application target, which needs an `.xcodeproj`, which Part 1 forbids
+  creating. The same applies to committing XCTest performance baselines: they live in the
+  scheme's `xcshareddata`, not in a package. Both are blocked by the constraints as
+  written, not by effort. If the transition metric matters — and it is the only thing that
+  measures real smoothness — the "local SPM packages only" rule needs one exception: a thin
+  host app target in a project file that contains nothing but the app delegate.
+- **~~A runnable app.~~ Delivered, on request.** Part 1 forbids creating an `.xcodeproj`,
+  and the repository owner asked for a host app anyway so the infrastructure could be seen
+  running. `HostApp/` is that app. The project file is hand-written — XcodeGen and Tuist are
+  also forbidden — and `Tools/validate_pbxproj.py` parses and reference-checks it on every
+  run of `Tools/verify.sh`, because a broken project file reports itself only as "cannot be
+  opened", with no line number. The packages are untouched by it and nothing depends on it.
+
+## Performance: what this task did and did not earn
+
+`FeatureSample` has two screens with a `Text` and some `Button`s. **Any frame-rate number
+measured against it is meaningless** and none is reported. What is delivered is the
+apparatus and the budgets: `PerformanceSignpost` with the four intervals and their p95
+targets, `RouterKitPerformanceTests` wired to `XCTClockMetric`, `XCTMemoryMetric` and
+`XCTOSSignpostMetric`, and the structural rules in `Packages/RouterKit/README.md` that
+actually govern whether the real screens are fast. Enforce the budgets against the transfer
+flow, which is the first migration target. There is no "60fps achieved" claim here, and the
+120Hz question is flagged as unresolved in the RouterKit README rather than decided quietly.
+
+## Deviations from the brief, and the reasoning
+
+Each of these is a place where the brief contradicts itself or its own linter. They are
+listed rather than resolved silently.
+
+1. **`animated:` became `isAnimated:`, `resetStack:` became `isStackReset:`.**
+   Part 2.4 specifies `func pop(animated: Bool)`. Part 9's `bool_param_is_prefix` rule
+   matches `\(\s*(?!is[A-Z])([a-z]\w*)\s*:\s*Bool\b`, which `pop(animated: Bool)` hits, at
+   `severity: error`. Part 9 declares itself non-negotiable and Part 9.2 forbids relaxing a
+   rule to make the build pass, so the signature moved. Note the rule only catches a Bool
+   in *first* parameter position, so `push(_:animated:)` would have slipped through — the
+   rename is for consistency with the stated convention, not just to clear the linter.
+2. **`Route` gained one requirement: `isEquivalent(to:)`.** Part 2.1 specifies an empty
+   marker protocol; Part 2.9 specifies `DeepLinkResolution: Equatable` carrying
+   `[any Route]`. Those cannot both hold — `any Route` has no `==`. A conforming route
+   declares `: Route, Equatable` and gets the implementation free from a protocol
+   extension. The alternative was comparing type names, which would report two different
+   `PinRoute` values as equal and make the deep-link tests worthless.
+3. **`ErrorPolicy` is data, not a closure.** Part 3.4 specifies
+   `struct ErrorPolicy { let map: (AppError) -> ErrorSurface }`. A stored closure makes
+   every type containing it non-`Equatable` and non-`Sendable` — and Part 3.3 requires
+   `PinConfiguration: Sendable, Equatable` while containing an `ErrorPolicy`. The closure
+   form also trips the brief's own `callback_on_prefix` rule. It is now
+   `defaultSurface` plus an `[AppErrorKind: ErrorSurface]` override map, with
+   `surface(for:)`. This is the same argument Part 3.3 makes for `onSuccess`.
+4. **`TabIdentifier` is declared in RouterKit; its values are declared in AppCore.**
+   Part 2.8 says the type belongs to `AppCore`, but Part 2.4 puts it in `Navigator`'s
+   signature, which lives in RouterKit. The type is a `String`-backed struct in RouterKit —
+   never an enum, which is what would force RouterKit to know feature names — and
+   `AppCore` declares `.dashboard` and `.payments` in an extension.
+5. **`OverlayWindowController` takes its `UIWindow` rather than a `UIWindowScene`.**
+   It still sets `windowLevel` to `.alert - 1` itself. Injecting the window is what makes
+   leak test 6.4.4 runnable without a scene, and the composition root still creates the
+   window in the main window's scene.
+6. **`screen.firstFrame` ends in `UINavigationControllerDelegate.didShow`**, not in the
+   destination's `viewDidAppear`. Same instant in practice; it keeps the interval token
+   inside the navigator instead of threading it through every screen.
+7. **`FeatureRegistrar` conformances downcast.** Part 2.3 fixes the signature at
+   `register(into:dependencies: FeatureDependencies)`, so a feature needing more must cast
+   to its own protocol. It is guarded, logged and asserted. Worth noting that by the Part 8
+   rule-of-three, the protocol earns its place only once three features exist; with one
+   feature, `AppCore` calling `SampleRegistrar.register` directly would be simpler. The
+   protocol is kept because the brief mandates it and the third feature is not
+   hypothetical.
+8. **Three internal test seams.** `RouteRegistry.isDuplicateAssertionEnabled`,
+   `StackNavigator.isPushInFlight` and `PinViewModel.submitTask` are `internal`, not
+   `private`. Duplicate registration traps in DEBUG, which makes the
+   "keeps the first registration" contract untestable, and the double-push guard cannot be
+   driven deterministically without a `UIViewControllerTransitionCoordinator` test double
+   with twenty members. None of them widens the public surface.
+9. **`LifecycleTracker.shared` carries a one-line `swiftlint:disable:next`.** The brief
+   mandates the call shape in 6.2 and its own `no_shared_singleton` rule forbids it. The
+   whole file is inside `#if DEBUG`, but SwiftLint lints text, not build configurations.
+10. **`// TODO(iOS16)` carries a `swiftlint:disable:next todo`.** The default `todo` rule
+    is enabled (the config sets no `disabled_rules`) and would fail `--strict`.
+11. **The sample has one extra PIN configuration, not one extra screen.** Part 3.3 asks
+    for two configurations; there are three — login (sheet), transaction approval (push),
+    session unlock (overlay). The third exists so the overlay blocker is demonstrated
+    without adding a screen, which is a stronger proof of the pattern than a second screen
+    would have been.
+
+## Abstractions created, and why (Part 8.4)
+
+Call sites are counted in `Sources`, excluding tests.
+
+| Type | What it is | Call sites | Why it exists |
+|---|---|---|---|
+| `Route` | marker + value equality for a destination | 5 route types, every navigator method | The unit the whole package moves around. |
+| `RouterError` | two recoverable failures | 3 | Lets resolution throw instead of trapping in RELEASE. |
+| `RouteRegistry` | route type → factory closure | 4 | The lazy-construction guarantee lives here. |
+| `FeatureDependencies` | cross-cutting services | 2 | Federated registration without RouterKit knowing a feature. |
+| `FeatureRegistrar` | a feature's registration entry point | 2 | Same. See deviation 7 — one real conformance today. |
+| `Navigator` | the whole call-site API | every view model | **Exempt from the rule of three**: written swap point for the iOS 16 stack API in 2027. |
+| `TabIdentifier` | a tab name | 5 | Keeps feature names out of RouterKit. |
+| `PresentationStyle` / `SheetDetent` / `OverlayLevel` | how a destination appears | 6 | Three genuinely different mechanisms; the enum is the dispatch. |
+| `StackNavigator` | `Navigator` over `UINavigationController` | 1 per tab, 2 today | The only `Navigator` implementation. Deleting it deletes the package. |
+| `OverlayWindowController` | second-window overlay queue | 3 | The only mechanism that covers presented sheets. |
+| `TabHost` | tab bar + navigators | 2 | Owns the navigators; nothing else can. |
+| `SessionSnapshot` | auth state at resolution time | 3 | Keeps `resolveDeepLink` pure. |
+| `DeepLink` / `DeepLinkRejection` / `DeepLinkResolution` | link input and outcome | 4 | Separates the decision from the navigation. |
+| `resolveDeepLink` | the decision | 2 | Pure function; the whole point. |
+| `HostingScreen` | SwiftUI/UIKit boundary | every screen | The erasure boundary that replaces `AnyView`. |
+| `ScreenChrome` / `BackButtonStyle` | navigation-bar configuration | every screen | One owner for the bar. |
+| `AppError` / `AppErrorKind` | the error crossing layers | many | — |
+| `LoadState` | asked / asking / got / failed | 1 today | Below the rule of three. Kept because it is the stated replacement for the 9,382 defaulted properties, and the second and third call sites arrive with the first real screen. **Flagged, not justified away.** |
+| `ErrorPolicy` / `ErrorSurface` | which surface shows an error | 3 | Moves the decision out of the view. |
+| `Logger` | three methods | many | — |
+| `AnalyticsSink` | write-only analytics | 2 | Stub boundary, per Part 10. |
+| `LocalizedKey` | a key, not a string | 4 | Keeps configuration `Equatable` across locales. |
+| `SnackbarPresenter` | transient message surface | 3 | Required by Part 3.4. |
+| `AvailabilityShim` | version-agnostic sheet setup | 1 | Below the rule of three. Kept because it is the *designated* single location for future branching and it already owns the house sheet defaults. |
+| `PerformanceSignpost` | four instrumented intervals | 4 | Part 7. Compiled out of RELEASE. |
+| `LifecycleTracker` | live instance counter | DEBUG only | Part 6. Compiled out of RELEASE. |
+| `PendingDeepLinkStore` | stash-once, replay-once | 2 | Fixes a named production defect. |
+| `AppDependencies` / `AppComposition` | composition root | 1 each | — |
+
+Two entries are below two call sites and are flagged above rather than removed:
+`LoadState` and `AvailabilityShim`. Both have a written reason. Everything else clears the
+bar. Nothing here is a dependency-injection container, a middleware pipeline, a reducer,
+a route DSL, a `BaseViewModel`, or a caching layer.
+
+## Known gaps in the supplied linter config
+
+Reported, not worked around:
+
+- `newline_between_methods` only fires when a method's closing brace is on its own line.
+  Two adjacent single-line methods (`func first() { }` / `func second() { }`) pass. Verified
+  against the regex as written.
+- `bool_param_is_prefix` only inspects the first parameter after `(`. A `Bool` in any later
+  position is invisible to it, which is why the `isAnimated` rename was a convention
+  decision rather than a linter-forced one.
+- `no_availability_outside_shim` has no path exclusion, so it would fire inside
+  `AvailabilityShim.swift` itself. Not an issue today — the shim needs no branch — but the
+  first branch added there will need a `disable:next`, or the rule needs an `excluded` key.
