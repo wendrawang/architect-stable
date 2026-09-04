@@ -1,0 +1,203 @@
+included:
+  - Packages
+
+excluded:
+  - "**/.build"
+  - "**/Tests"
+
+opt_in_rules:
+  - array_init
+  - closure_spacing
+  - collection_alignment
+  - contains_over_filter_count
+  - contains_over_first_not_nil
+  - discouraged_optional_boolean
+  - empty_collection_literal
+  - empty_count
+  - empty_string
+  - explicit_init
+  - fatal_error_message
+  - first_where
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  - last_where
+  - legacy_multiple
+  - modifier_order
+  - overridden_super_call
+  - prefer_self_type_over_type_of_self
+  - private_action
+  - private_outlet
+  - redundant_nil_coalescing
+  - sorted_first_last
+  - unavailable_function
+  - unneeded_parentheses_in_closure_argument
+  - unowned_variable_capture
+  - untyped_error_in_catch
+  - vertical_parameter_alignment_on_call
+  - vertical_whitespace_closing_braces
+  - vertical_whitespace_opening_braces
+  - weak_delegate
+  - yoda_condition
+
+analyzer_rules:
+  - unused_declaration
+  - unused_import
+  - capture_variable
+
+file_length:
+  warning: 250
+  error: 250
+  ignore_comment_only_lines: true
+
+function_body_length:
+  warning: 50
+  error: 50
+
+type_body_length:
+  warning: 200
+  error: 200
+
+cyclomatic_complexity:
+  warning: 8
+  error: 10
+
+function_parameter_count:
+  warning: 5
+  error: 5
+
+nesting:
+  type_level: 1
+  function_level: 2
+
+line_length:
+  warning: 120
+  error: 140
+  ignores_comments: true
+
+identifier_name:
+  min_length:
+    warning: 3
+    error: 3
+  max_length:
+    warning: 35
+    error: 35
+  excluded:
+    - id
+    - to
+    - at
+    - up
+    - url
+    - key
+    - tag
+    - row
+
+type_name:
+  min_length: 3
+  max_length: 45
+
+vertical_whitespace:
+  max_empty_lines: 1
+
+force_cast: error
+force_try: error
+force_unwrapping: error
+implicitly_unwrapped_optional: error
+unowned_variable_capture: error
+weak_delegate: error
+
+custom_rules:
+  bool_is_prefix:
+    name: "Bool must be prefixed with is"
+    regex: '\b(?:let|var)\s+(?!is[A-Z])([a-z]\w*)\s*(?::\s*Bool\b|=\s*(?:true|false)\b)'
+    message: "Bool identifiers must be prefixed with 'is'."
+    severity: error
+
+  bool_param_is_prefix:
+    name: "Bool parameter must be prefixed with is"
+    regex: '\(\s*(?!is[A-Z])([a-z]\w*)\s*:\s*Bool\b'
+    message: "Bool parameters must be prefixed with 'is'."
+    severity: error
+
+  callback_on_prefix:
+    name: "Callback must be prefixed with on"
+    regex: '\b(?:let|var)\s+(?!on[A-Z])([a-z]\w*)\s*:\s*\(\(?[^)]*\)?\)?\s*->'
+    message: "Closure properties must be prefixed with 'on'."
+    severity: error
+
+  banned_callback_names:
+    name: "Banned callback parameter name"
+    regex: '\b(completion|handler|callback|block)\s*:\s*(@escaping\s+)?\('
+    message: "Use an 'on'-prefixed name, or make the function async."
+    severity: error
+
+  no_escaping_result_closure:
+    name: "Use async instead of an escaping result closure"
+    regex: '@escaping\s+\(\s*(Result|Data|Error|\[)'
+    message: "Asynchronous results must use async/await, not an escaping closure."
+    severity: error
+
+  no_any_view:
+    name: "AnyView is banned"
+    regex: '\bAnyView\b'
+    message: "AnyView is banned. UIViewController is the erasure boundary."
+    severity: error
+
+  no_shared_singleton:
+    name: "Singletons are banned"
+    regex: 'static\s+(?:let|var)\s+shared\b'
+    message: "No singletons. Inject dependencies through init."
+    severity: error
+
+  no_unstable_view_id:
+    name: "Unstable view identity"
+    regex: '\.id\(\s*UUID\(\)'
+    message: "id(UUID()) forces a remount on every render."
+    severity: error
+
+  no_legacy_navigation:
+    name: "Legacy SwiftUI navigation is banned"
+    regex: '\b(NavigationView|NavigationLink|fullScreenCover)\b'
+    message: "Navigation goes through Navigator, not SwiftUI."
+    severity: error
+
+  no_ios16_api:
+    name: "iOS 16+ API on an iOS 15 target"
+    regex: '\b(NavigationStack|NavigationSplitView|navigationDestination|presentationDetents|ShareLink|ViewThatFits|AnyLayout|scrollDisabled|sizingOptions)\b'
+    message: "Minimum deployment target is iOS 15."
+    severity: error
+
+  no_availability_outside_shim:
+    name: "if #available outside the shim"
+    regex: 'if\s+#available'
+    message: "Availability checks belong in CoreKit/Compat/AvailabilityShim.swift only."
+    severity: error
+
+  no_coordinator_type:
+    name: "Coordinator types are banned"
+    regex: '(?:class|struct|protocol)\s+\w*Coordinator\b'
+    message: "Routing lives in Navigator. Per-flow variation is configuration data."
+    severity: error
+
+  banned_type_suffix:
+    name: "Vague type suffix"
+    regex: '(?:final\s+)?(?:class|struct)\s+\w+(Manager|Helper|Provider|Facade|Wrapper)\b'
+    message: "Name the type after what it is."
+    severity: error
+
+  newline_between_methods:
+    name: "Blank line required between methods"
+    regex: '\n[ \t]*\}\n[ \t]*(?:@\w+[ \t]+)?(?:(?:public|private|internal|fileprivate|open|static|final|override|mutating|nonisolated)[ \t]+)*func[ \t]'
+    message: "Put exactly one blank line between methods."
+    severity: error
+
+  newline_before_first_method:
+    name: "Blank line required between properties and methods"
+    regex: '\b(?:let|var)[ \t]+\w+[^\n]*\n[ \t]*(?:@\w+[ \t]+)?(?:(?:public|private|internal|fileprivate|open|static|final|override|mutating|nonisolated)[ \t]+)*func[ \t]'
+    message: "Put exactly one blank line between the property block and the first method."
+    severity: error
+
+  no_newline_between_properties:
+    name: "No blank line between properties"
+    regex: '\b(?:let|var)[ \t]+\w+[ \t]*:[^\n{]*\n[ \t]*\n[ \t]*(?:@\w+[ \t]+)?(?:(?:public|private|internal|fileprivate|open|static|final|lazy|weak|unowned)[ \t]+)*(?:let|var)[ \t]'
+    message: "Properties form one block with no blank lines."
+    severity: warning
