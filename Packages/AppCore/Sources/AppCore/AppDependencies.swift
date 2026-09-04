@@ -10,7 +10,7 @@ public final class AppDependencies: SampleDependencies {
     public let logger: any Logger
     public let analytics: any AnalyticsSink
     public let snackbar: any SnackbarPresenter
-    public let paymentsTab = TabIdentifier.payments
+    public let financialTab = TabIdentifier.financial
     private var sessionSnapshot: SessionSnapshot
 
     public init(logger: any Logger,

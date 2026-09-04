@@ -12,12 +12,12 @@ final class HomeViewModel: ObservableObject {
     @Published private(set) var state: HomeState
     private let navigator: any Navigator
     private let snackbar: any SnackbarPresenter
-    private let paymentsTab: TabIdentifier
+    private let financialTab: TabIdentifier
 
-    init(navigator: any Navigator, snackbar: any SnackbarPresenter, paymentsTab: TabIdentifier) {
+    init(navigator: any Navigator, snackbar: any SnackbarPresenter, financialTab: TabIdentifier) {
         self.navigator = navigator
         self.snackbar = snackbar
-        self.paymentsTab = paymentsTab
+        self.financialTab = financialTab
         self.state = HomeState(heading: "Sample feature",
                                caption: "One PIN screen, three flows, no routing objects.",
                                rows: Self.rows)
@@ -48,9 +48,9 @@ final class HomeViewModel: ObservableObject {
             navigator.present(SamplePinRoute(configuration: .sessionUnlock),
                               as: .overlay(.session),
                               isAnimated: true)
-        case .paymentsTabTapped:
-            snackbar.show(message: "Switching to \(paymentsTab.rawValue)")
-            navigator.switchTab(paymentsTab, isStackReset: true)
+        case .financialTabTapped:
+            snackbar.show(message: "Switching to \(financialTab.rawValue)")
+            navigator.switchTab(financialTab, isStackReset: true)
         }
     }
 
@@ -58,6 +58,6 @@ final class HomeViewModel: ObservableObject {
         HomeRow(id: "approve", title: "Approve a transaction (push)", action: .approveTransactionTapped),
         HomeRow(id: "signIn", title: "Sign in (sheet)", action: .signInTapped),
         HomeRow(id: "lock", title: "Lock the session (overlay)", action: .lockSessionTapped),
-        HomeRow(id: "payments", title: "Go to payments (tab)", action: .paymentsTabTapped)
+        HomeRow(id: "financial", title: "Go to Finansial (tab)", action: .financialTabTapped)
     ]
 }

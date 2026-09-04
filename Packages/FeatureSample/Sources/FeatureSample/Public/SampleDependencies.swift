@@ -9,5 +9,5 @@ import RouterKit
 public protocol SampleDependencies: FeatureDependencies {
     var snackbar: any SnackbarPresenter { get }
     /// Supplied by the composition root. A feature must not name another feature's tab.
-    var paymentsTab: TabIdentifier { get }
+    var financialTab: TabIdentifier { get }
 }

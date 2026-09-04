@@ -259,6 +259,20 @@ actually govern whether the real screens are fast. Enforce the budgets against t
 flow, which is the first migration target. There is no "60fps achieved" claim here, and the
 120Hz question is flagged as unresolved in the RouterKit README rather than decided quietly.
 
+## A gap in the gate: strict concurrency
+
+CI builds with Xcode 15.4 in Swift 5 language mode, so it does **not** see Swift 6 strict
+concurrency diagnostics. A `static let` of a non-`Sendable` type compiles silently here and
+fails for anyone building in Swift 6 mode. That is exactly how `TabBarMetrics.standard`,
+`BrandPalette.nyala` and `HomeViewModel.rows` reached a green CI while being broken for a
+Swift 6 consumer; all three are now `Sendable`.
+
+Closing the gap properly means building these packages in Swift 6 language mode, which is a
+migration decision rather than a switch: adding `-strict-concurrency=complete` under Swift 5
+only produces warnings, and CI does not fail on Swift warnings, so it would gate nothing.
+Until that decision is made, **any new `static let` needs its type checked for `Sendable` by
+hand** — the audit is one grep, and `Tools/verify.sh` does not do it for you.
+
 ## Deviations from the brief, and the reasoning
 
 Each of these is a place where the brief contradicts itself or its own linter. They are
@@ -370,6 +384,11 @@ Reported, not worked around:
 - `bool_param_is_prefix` only inspects the first parameter after `(`. A `Bool` in any later
   position is invisible to it, which is why the `isAnimated` rename was a convention
   decision rather than a linter-forced one.
+- `unused_import` is not always right. It reports `import CoreGraphics` in
+  `DesignKit/TabBarMetrics.swift` as unused, but removing it fails module emission: `CGFloat`
+  is declared in CoreGraphics and the analyzer's index does not attribute it there. That file
+  carries the only `disable:next` of its kind, with the evidence in the comment. When the
+  analyzer and the compiler disagree, the compiler wins.
 - `no_availability_outside_shim` has no path exclusion, so it would fire inside
   `AvailabilityShim.swift` itself. Not an issue today — the shim needs no branch — but the
   first branch added there will need a `disable:next`, or the rule needs an `excluded` key.
