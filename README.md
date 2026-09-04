@@ -74,7 +74,8 @@ Results so far, on the branch that introduced these packages:
 | `xcodebuild test` — RouterKit, iPhone 15 simulator | passes, 27 tests |
 | `xcodebuild build` — AppCore, iOS device slice | one error found and fixed: `Logger` ambiguous between `os.Logger` and `CoreKit.Logger` |
 | `xcodebuild test` — FeatureSample, AppCore | passes |
-| `swiftlint analyze --strict` | 17 unused imports found; **`unused_declaration` found none** |
+| `swiftlint analyze --strict` | 18 unused imports found across 48 files; **`unused_declaration` found none** |
+| `Tools/smoke-hostapp.sh` — build, launch, screenshot | not reached yet |
 
 One of those rounds is worth recording as a mistake rather than a milestone. The analyzer
 named 17 unused imports, all in RouterKit and CoreKit. Rather than stop there, 13 more were
@@ -86,6 +87,13 @@ guard that only looked for Foundation *type* names could not see. The view model
 `ObservableObject`/`@Published`" actually sanctions. The lesson is not that the extra removals
 were wrong — the analyzer now covers those files and will judge them — but that acting beyond
 what a tool reported, on a heuristic, needs the tool pointed at the code first.
+
+Widening the compiler log settled it. At full coverage the analyzer read 48 files instead of
+24 and reported exactly one violation: an unused `import UIKit` in `SampleRegistrar.swift`,
+which the narrow gate could never have seen. Eleven of the thirteen speculative removals were
+correct, two were wrong, and the one file left alone out of caution turned out to be a real
+finding. That is the argument for pointing the tool at everything rather than guessing at any
+of it.
 
 Building AppCore compiles every other package first, so CoreKit, RouterKit, DesignKit,
 NetworkKit and FeatureSample all compile.
